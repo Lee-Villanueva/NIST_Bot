@@ -1,6 +1,6 @@
 module discordbot
 
-go 1.25.6
+go 1.23.0
 
 require (
 	github.com/Lee-Villanueva/nist v1.0.0
