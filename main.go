@@ -102,7 +102,13 @@ func interactionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	cveID := strings.ToUpper(options[0].StringValue())
+	cveID := strings.ToUpper(strings.TrimSpace(options[0].StringValue()))
+
+	// Validate CVE ID format
+	if !validateCVEID(cveID) {
+		respondToInteraction(s, i, "Invalid CVE ID format. Please use format: CVE-YYYY-NNNN (e.g., CVE-2021-44228)")
+		return
+	}
 
 	// Defer the response to show "thinking" state
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -158,16 +164,18 @@ func followupMessage(s *discordgo.Session, i *discordgo.InteractionCreate, conte
 
 func buildCVEResponse(cveData *nist.CVE) string {
 	cve := cveData.Vulnerabilities[0].CVE
-	response := fmt.Sprintf("**%s**\n", cve.ID)
-	response += fmt.Sprintf("Status: %s\n", cve.VulnStatus)
-	response += fmt.Sprintf("Published: %s\n", cve.Published)
-	response += fmt.Sprintf("Last Modified: %s\n\n", cve.LastModified)
+
+	// Sanitize all external data to prevent Discord injection attacks
+	response := fmt.Sprintf("**%s**\n", sanitizeDiscordContent(cve.ID))
+	response += fmt.Sprintf("Status: %s\n", sanitizeDiscordContent(cve.VulnStatus))
+	response += fmt.Sprintf("Published: %s\n", sanitizeDiscordContent(cve.Published))
+	response += fmt.Sprintf("Last Modified: %s\n\n", sanitizeDiscordContent(cve.LastModified))
 
 	// Add description
 	if len(cve.Descriptions) > 0 {
 		for _, desc := range cve.Descriptions {
 			if desc.Lang == "en" {
-				response += fmt.Sprintf("**Description:**\n%s\n\n", desc.Value)
+				response += fmt.Sprintf("**Description:**\n%s\n\n", sanitizeDiscordContent(desc.Value))
 				break
 			}
 		}
@@ -176,8 +184,8 @@ func buildCVEResponse(cveData *nist.CVE) string {
 	// Add CVSS score if available
 	if len(cve.Metrics.CVSSMetricV31) > 0 {
 		cvss := cve.Metrics.CVSSMetricV31[0].CVSSData
-		response += fmt.Sprintf("**CVSS v3.1 Score:** %.1f (%s)\n", cvss.BaseScore, cvss.BaseSeverity)
-		response += fmt.Sprintf("Vector: %s\n", cvss.VectorString)
+		response += fmt.Sprintf("**CVSS v3.1 Score:** %.1f (%s)\n", cvss.BaseScore, sanitizeDiscordContent(cvss.BaseSeverity))
+		response += fmt.Sprintf("Vector: %s\n", sanitizeDiscordContent(cvss.VectorString))
 	}
 
 	return response
@@ -201,7 +209,13 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	cveID := strings.ToUpper(parts[1])
+	cveID := strings.ToUpper(strings.TrimSpace(parts[1]))
+
+	// Validate CVE ID format
+	if !validateCVEID(cveID) {
+		s.ChannelMessageSend(m.ChannelID, "Invalid CVE ID format. Please use format: CVE-YYYY-NNNN (e.g., CVE-2021-44228)")
+		return
+	}
 
 	// Send typing indicator
 	s.ChannelTyping(m.ChannelID)
