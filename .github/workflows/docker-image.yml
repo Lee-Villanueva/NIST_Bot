@@ -44,3 +44,16 @@ jobs:
       run: |
         echo "Image pushed to: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
         echo "Image pushed to: $ECR_REGISTRY/$ECR_REPOSITORY:latest"
+
+    - name: Deploy to Amazon ECS
+      env:
+        ECS_CLUSTER: ${{ secrets.ECS_CLUSTER_NAME }}
+        ECS_SERVICE: ${{ secrets.ECS_SERVICE_NAME }}
+      run: |
+        echo "Updating ECS service: $ECS_SERVICE in cluster: $ECS_CLUSTER"
+        aws ecs update-service \
+          --cluster $ECS_CLUSTER \
+          --service $ECS_SERVICE \
+          --force-new-deployment \
+          --region ${{ secrets.AWS_REGION }}
+        echo "ECS service update initiated successfully"
